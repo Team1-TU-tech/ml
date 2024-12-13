@@ -1,0 +1,17 @@
+[project]
+name = "mento"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "oddsummer56", email = "oddsummer56@gmail.com"},
+]
+dependencies = [
+    "konlpy>=0.6.0",
+]
+requires-python = "==3.11.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
