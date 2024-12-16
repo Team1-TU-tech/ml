@@ -25,7 +25,7 @@ def get_all_performances():
         print("MongoDB 연결에 실패했습니다. 데이터를 가져올 수 없습니다.")
         return [] 
     
-    performances = collection.find({},{'_id': 1, 'title': 1, 'region': 1, 'description': 1, 'start_date': 1, 'end_date': 1})
+    performances = collection.find({},{'_id': 1, 'title': 1, 'region': 1, 'location': 1, 'description': 1, 'start_date': 1, 'end_date': 1})
     
     return list(performances)
 
