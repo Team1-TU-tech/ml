@@ -3,7 +3,7 @@ from konlpy.tag import Okt
 from gensim.models import Word2Vec
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from datetime import datetime
+from datetime import datetime, timedelta
 
 okt = Okt()
 
@@ -77,9 +77,10 @@ def calculate_cosine_similarity(model, descriptions):
     
     return cosine_sim
 
-def get_top_similar_performances(cosine_sim, performances, top_n=3):
+
+def get_top_similar_performances(cosine_sim: np.ndarray, performances, top_n=3, threshold=0.98, days_limit=90):
     similar_performances = []
-    
+
     # 각 공연에 대해 유사한 공연들을 찾기
     for idx, performance in enumerate(performances):
         if idx >= len(cosine_sim):  # idx가 cosine_sim의 범위를 벗어나지 않도록 체크
@@ -88,38 +89,34 @@ def get_top_similar_performances(cosine_sim, performances, top_n=3):
         
         performance_similarities = cosine_sim[idx]  # 해당 공연과 다른 공연들의 유사도
         performance_start_date = datetime.strptime(performance['start_date'], '%Y.%m.%d')  # 공연 시작 날짜
-        
-        # 유사도 높은 순으로 정렬하되, 자기 자신은 제외
-        similar_performances_idx = np.argsort(performance_similarities)[::-1][1:top_n+1]  # 유사도 높은 순
+        performance_region = performance.get('region', None)
 
-        # 유효한 인덱스만 선택 (범위를 벗어난 인덱스를 제외)
-        similar_performances_idx = similar_performances_idx[similar_performances_idx < len(performances)]
+        # 공연의 start_date 기준으로 90일 이내인 공연만 필터링
+        date_limit = performance_start_date + timedelta(days=days_limit)
         
-        # 유효한 공연들의 유사도 정보 저장
+        # 유사도 높은 순으로 정렬하되, 자기 자신은 제외하고, threshold 이상의 유사도를 가진 공연들만 필터링
+        similar_performances_idx = np.argsort(performance_similarities)[::-1]  # 유사도 높은 순으로 정렬
         top_similar = []
         
-        for i in similar_performances_idx:
-            if i >= len(performances):
-                continue  # 범위를 벗어난 인덱스는 건너뜀
-            
-            similar_performance = performances[i]
-            similar_start_date = datetime.strptime(similar_performance['start_date'], '%Y.%m.%d')
-            
-            # 날짜 차이 계산
-            days_difference = abs((performance_start_date - similar_start_date).days)
-            
-            # 날짜 차이가 0인 경우는 제외
-            if days_difference == 0:
-                continue
-            
-            top_similar.append({
-                'performance_id': similar_performance['_id'],  # 공연 ID (MongoDB의 경우)
-                'similarity_score': performance_similarities[i],  # 유사도 점수
-                'date_difference': days_difference  # 날짜 차이
-            })
+        for similar_idx in similar_performances_idx:
+            # 자기 자신은 제외하고, 유사도 threshold 이하이어야 하며, 같은 지역이어야 함
+            if similar_idx != idx and performance_similarities[similar_idx] < threshold:
+                similar_performance = performances[similar_idx]
+                similar_performance_start_date = datetime.strptime(similar_performance['start_date'], '%Y.%m.%d')
+                similar_performance_region = similar_performance.get('region', None)
+                
+                if performance_region != similar_performance_region:
+                    continue
+                
+                # 지역이 동일하고, 90일 이내인 경우만 유사 공연으로 추가
+                if performance_start_date <= similar_performance_start_date <= date_limit:
+                    top_similar.append(similar_performance)
+                
+                # 이미 top_n개 만큼 찾았으면 추가 중지
+                if len(top_similar) >= top_n:
+                    break
         
-        # 유사도와 날짜 차이를 기준으로 정렬 (유사도 우선, 날짜 차이는 두 번째)
-        top_similar_sorted = sorted(top_similar, key=lambda x: (-x['similarity_score'], x['date_difference']))
-        similar_performances.append(top_similar_sorted)
+        # 결과 리스트에 유사 공연 추가
+        similar_performances.append(top_similar)
     
     return similar_performances

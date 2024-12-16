@@ -1,8 +1,8 @@
 from ml.db import *
 from ml.utils import *
-#from sklearn.metrics.pairwise import cosine_similarity
-#import numpy as np
+from dotenv import load_dotenv
 
+load_dotenv()  # .env 파일에서 변수 로드
 
 def update_performances_with_similarities(performances, similar_performances):
     try:
@@ -16,12 +16,23 @@ def update_performances_with_similarities(performances, similar_performances):
     
     # 각 공연에 대해 유사한 공연들 정보를 업데이트
     for performance, top_similar in zip(performances, similar_performances):
-        
-        collection.insert_one(
-            {'_id': performance['_id'],
-             'title': performance['title'],
-             'similar_performances': top_similar}  # 공연 ID 기준으로
+        # 공연 ID 기준으로 유사 공연들 업데이트
+        result = collection.update_one(
+            {'_id': performance['_id']},  # 기준은 _id
+            {
+                '$set': {
+                    'title': performance['title'],
+                    'similar_performances': top_similar
+                }
+            },
+            upsert=True  # 없으면 새로 삽입
         )
+        if result.matched_count > 0:
+            print(f"Updated performance: {performance['_id']}")
+        else:
+            print(f"Inserted new performance: {performance['_id']}")
+    
+    print("Performances updated successfully!")
 
  # 데이터 가져오기
 print("1. 데이터 가져오는 중...")

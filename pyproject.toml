@@ -1,7 +1,7 @@
 [project]
 name = "ml"
-version = "0.1.1"
-description = "Default template for PDM package"
+version = "0.2.0"
+description = "This is ML for Recommender System"
 authors = [
     {name = "oddsummer56", email = "oddsummer56@gmail.com"},
 ]
@@ -10,8 +10,10 @@ dependencies = [
     "gensim>=4.3.3",
     "scikit-learn>=1.6.0",
     "pymongo>=4.10.1",
+    "pytz>=2024.2",
+    "dotenv>=0.0.5",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 readme = "README.md"
 license = {text = "MIT"}
 
