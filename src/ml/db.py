@@ -11,16 +11,18 @@ def connect_db():
         db = client['tut']
         collection = db['ticket']
         print("MongoDB connected successfully!")
-
-         # 'description' 필드를 가져오는 쿼리
-        tickets = collection.find({}, {'description': 1})
         
-        description_list = list()
-
-        for ticket in tickets:
-            description_list.append(ticket['description'])
+        return collection
 
     except Exception as e:
         print(f"MongoDB connection error: {e}")
     
-    return description_list
+def get_all_performances():
+    collection = connect_db()
+    if collection is None:
+        print("MongoDB 연결에 실패했습니다. 데이터를 가져올 수 없습니다.")
+        return [] 
+    
+    performances = collection.find({}, {'_id': 1, 'title': 1, 'description': 1, 'start_date': 1, 'end_date': 1})
+    return list(performances)
+
