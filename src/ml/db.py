@@ -10,7 +10,7 @@ def connect_db():
     try:
         client = MongoClient(mongo_uri)
         db = client['tut']
-        collection = db['ticket']
+        collection = db['data']
         print("MongoDB connected successfully!")
         
         return collection

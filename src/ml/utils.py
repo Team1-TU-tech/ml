@@ -86,9 +86,13 @@ def get_top_similar_performances(cosine_sim: np.ndarray, performances, top_n=3, 
         if idx >= len(cosine_sim):  # idx가 cosine_sim의 범위를 벗어나지 않도록 체크
             print(f"Index {idx} is out of bounds for cosine_sim with size {len(cosine_sim)}")
             continue
-        
+         # start_date가 None인 경우 건너뛰기
+        performance_start_date_str = performance.get('start_date', None)
+        if performance_start_date_str is None:
+            continue
+
+        performance_start_date = datetime.strptime(performance_start_date_str, '%Y.%m.%d')  # 공연 시작 날짜
         performance_similarities = cosine_sim[idx]  # 해당 공연과 다른 공연들의 유사도
-        performance_start_date = datetime.strptime(performance['start_date'], '%Y.%m.%d')  # 공연 시작 날짜
         performance_region = performance.get('region', None)
 
         # 공연의 start_date 기준으로 90일 이내인 공연만 필터링
@@ -102,7 +106,15 @@ def get_top_similar_performances(cosine_sim: np.ndarray, performances, top_n=3, 
             # 자기 자신은 제외하고, 유사도 threshold 이하이어야 하며, 같은 지역이어야 함
             if similar_idx != idx and performance_similarities[similar_idx] < threshold:
                 similar_performance = performances[similar_idx]
-                similar_performance_start_date = datetime.strptime(similar_performance['start_date'], '%Y.%m.%d')
+
+                similar_performance_start_date_str = similar_performance.get('start_date', None)
+
+                # start_date가 None인 경우 건너뛰기
+                if similar_performance_start_date_str is None:
+                    continue
+
+                similar_performance_start_date = datetime.strptime(similar_performance_start_date_str, '%Y.%m.%d') 
+                #similar_performance_start_date = datetime.strptime(similar_performance['start_date'], '%Y.%m.%d')
                 similar_performance_region = similar_performance.get('region', None)
                 
                 if performance_region != similar_performance_region:
