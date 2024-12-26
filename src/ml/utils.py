@@ -12,44 +12,46 @@ def preprocess(text):
     """
     텍스트를 소문자화하고 구두점을 제거한 후, 형태소 분석하여 명사만 추출하는 함수
     """
-    if text is None:
-        return []  # None은 빈 리스트로 처리
-    
+    if not text or not isinstance(text, str):
+        return ["default"]  # 기본값 처리
     text = text.lower()
     text = ''.join([char for char in text if char not in string.punctuation])
     tokens = okt.nouns(text)
-    return tokens
+    return tokens if tokens else ["default"]  # 빈 리스트 방지
 
 def train_word2vec_model(descriptions):
     """
     전처리된 설명들로 Word2Vec 모델을 학습하는 함수
     """
+    # 데이터 검증
+    none_count = sum(1 for desc in descriptions if desc is None)
+    empty_count = sum(1 for desc in descriptions if isinstance(desc, str) and not desc.strip())
+    print(f"None 개수: {none_count}, 빈 문자열 개수: {empty_count}")
+
+    # 전처리
     processed_descriptions = [preprocess(description) for description in descriptions]
+    print(f"전처리된 데이터 크기: {len(processed_descriptions)}")
+
+    # 전처리 후 빈 리스트 검증
+    empty_processed = [desc for desc in processed_descriptions if not desc]
+    print(f"전처리 후 빈 리스트 개수: {len(empty_processed)}")
+
+    # 빈 리스트 기본값 추가
+    processed_descriptions = [desc if desc else ["default"] for desc in processed_descriptions]
+    print(f"Word2Vec 학습 데이터 크기: {len(processed_descriptions)}")
+
+
     model = Word2Vec(processed_descriptions, vector_size=100, window=5, min_count=1, workers=4)
+
     return model
 
-def get_word_vector(model, word):
+# 3. 벡터 계산 함수
+def get_average_vector(model, tokens):
     """
-    주어진 단어의 벡터를 반환하는 함수
+    주어진 단어들의 벡터 평균을 계산하는 함수
     """
-    try:
-        return model.wv[word]
-    except KeyError:
-        print(f"단어 '{word}'는 모델에 존재하지 않습니다.")
-        return None
-
-def filter_by_date(src_start_date, trg_start_date):
-    """
-    두 날짜를 비교하여 추천할 공연을 필터링하는 함수
-    날짜가 동일하거나 가까운 범위 내의 공연을 추천 (예: 30일 이내)
-    """
-    try:
-        src_start_date = datetime.strptime(src_start_date, '%Y.%m.%d')
-        trg_start_date = datetime.strptime(trg_start_date, '%Y.%m.%d')
-        return abs((src_start_date - trg_start_date).days) <= 270
-    except Exception as e:
-        print(f"날짜 형식 오류: {e}")
-        return False
+    vectors = [model.wv[word] for word in tokens if word in model.wv]
+    return np.mean(vectors, axis=0) if vectors else np.zeros(model.vector_size)
 
 def get_average_vector(model, tokens):
     """
@@ -68,13 +70,17 @@ def calculate_cosine_similarity(model, descriptions):
     공연 설명별로 평균 벡터를 구하고, 코사인 유사도를 계산하는 함수
     """
     processed_descriptions = [preprocess(description) for description in descriptions]
+    print(f"전처리된 설명 데이터 크기: {len(processed_descriptions)} / 원본 데이터 크기: {len(descriptions)}")
     
     # 각 공연 설명에 대한 평균 벡터 구하기
-    description_vectors = [get_average_vector(model, description) for description in processed_descriptions]
+    description_vectors = np.array([get_average_vector(model, desc) for desc in processed_descriptions])
+    print(f"벡터화된 데이터 크기: {len(description_vectors)}")
+    print(f"0 벡터 개수: {sum(1 for vec in description_vectors if np.all(vec == 0))}")
     
     # 코사인 유사도 계산
     cosine_sim = cosine_similarity(description_vectors)
-    
+    print(f"코사인 유사도 계산 완료: {cosine_sim.shape}")
+
     return cosine_sim
 
 
@@ -83,9 +89,13 @@ def get_top_similar_performances(cosine_sim: np.ndarray, performances, top_n=3, 
 
     # 각 공연에 대해 유사한 공연들을 찾기
     for idx, performance in enumerate(performances):
-        if idx >= len(cosine_sim):  # idx가 cosine_sim의 범위를 벗어나지 않도록 체크
+        # 유효성 검사: 인덱스 초과 시 기본값 처리
+        if idx >= len(cosine_sim):
             print(f"Index {idx} is out of bounds for cosine_sim with size {len(cosine_sim)}")
-            continue
+            performance_similarities = np.zeros(len(performances))  # 기본값으로 유사도 0 배열 사용
+        else:
+            performance_similarities = cosine_sim[idx]
+            
          # start_date가 None인 경우 건너뛰기
         performance_start_date_str = performance.get('start_date', None)
         if performance_start_date_str is None:

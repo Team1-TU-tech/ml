@@ -7,7 +7,7 @@ load_dotenv()  # .env 파일에서 변수 로드
 def update_performances_with_similarities(performances, similar_performances):
     try:
         client = MongoClient(mongo_uri)
-        db = client['test']
+        db = client['tut']
         collection = db['similar']
         print("MongoDB connected successfully!")
 
@@ -43,15 +43,24 @@ def main():
 
     # 2. Word2Vec 모델 학습
     print("2. Word2Vec 모델 학습 중...")
-    descriptions = [item['description'] for item in performances if item['description']]  # description이 None이 아닌 경우만 포함
+    # description 필드 처리
+    descriptions = [
+        item.get('description', "default") if item.get('description') is not None else "default"
+        for item in performances
+    ]
+    descriptions = [desc if isinstance(desc, str) and desc.strip() else "default" for desc in descriptions]  # 빈 문자열 처리
     model = train_word2vec_model(descriptions)
     print("Word2Vec 모델 학습 완료")
 
     # 3. 공연 간 유사도 계산
-    print("3. 공연 간 유사도 계산 중...")
-    cosine_sim = calculate_cosine_similarity(model, descriptions)
-    print(f"유사도 계산 완료: {len(cosine_sim)}개의 유사도 계산 완료")
-
+    try:
+        print("3. 공연 간 유사도 계산 중...")
+        cosine_sim = calculate_cosine_similarity(model, descriptions)
+        print(cosine_sim)
+        print(f"유사도 계산 완료: {len(cosine_sim)}개의 유사도 계산 완료")
+    except Exception as e:
+        print(f"Error during similarity calculation: {e}")
+    
     # 4. 유사도 기준으로 추천할 공연 리스트 생성
     print("4. 유사도 기준으로 추천할 공연 리스트 생성 중...")
     similar_performances = get_top_similar_performances(cosine_sim, performances)
